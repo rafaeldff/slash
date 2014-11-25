@@ -24,6 +24,7 @@ executable slash
                        lens >= 4.4 && < 4.5,
                        wreq,
                        bytestring,
+                       parsec,
                        text
   -- hs-source-dirs:      
   default-language:    Haskell2010
