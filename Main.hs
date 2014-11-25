@@ -3,8 +3,9 @@ import Network.Wreq
 import Control.Lens
 
 main = do
-  putStr "uri: "
+  putStrLn "uri: "
   uri <- getLine
   response <- get uri
+  putStrLn "response body: "
   putStrLn $ show (response ^. responseBody)
   main
