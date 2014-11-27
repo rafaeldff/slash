@@ -11,10 +11,9 @@ import Control.Lens
 data Command = Body | Status
                deriving (Eq, Show)
 
-execute :: Maybe Command -> Response ByteString -> ByteString
-execute (Just Body)   response = response ^. responseBody
-execute (Just Status) response = C.pack $ show $ (response ^. responseStatus . statusCode)
-execute _             _        = "<error>"
+execute response Body   = response ^. responseBody
+execute response Status = C.pack $ show $ (response ^. responseStatus . statusCode)
+
 
 parseCommand s = case (parse command "<error>" s) of
                    Left _        -> Nothing
@@ -35,5 +34,5 @@ main = do
   response <- get uri
   Prelude.putStrLn "body or status?: "
   command <- getLine
-  Prelude.putStrLn $ show $ execute (parseCommand command) response
+  Prelude.putStrLn $  maybe "error" show (fmap (execute response) (parseCommand command))
   main
