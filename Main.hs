@@ -33,11 +33,14 @@ body    = do _ <- string "body"
 prompt str = do putStr str
                 hFlush stdout
 
+printResult result =
+  Prelude.putStrLn $  maybe "error" show result
+
 main = do
   prompt "slash> "
   uri <- getLine
   response <- get uri
   prompt "slash> "
   command <- getLine
-  Prelude.putStrLn $  maybe "error" show (fmap (execute response) (parseCommand command))
+  printResult $ fmap (execute response) (parseCommand command)
   main
