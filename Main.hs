@@ -13,8 +13,9 @@ import System.IO (hFlush,stdout)
 
 data Queries = Body | Status deriving (Eq, Show)
 data Orders  = Get deriving (Eq, Show)
+data Setters = SetUri [Char] deriving (Eq, Show)
 
-data Command = Query Queries | Order Orders
+data Command = Query Queries | Order Orders | Setter Setters 
                deriving (Eq, Show)
 
 type Uri = String
@@ -30,6 +31,8 @@ order Get request = do let Request uri _ = request
                        newResponse <- get uri
                        return newResponse
 
+setter :: Setters -> Request -> Request
+setter (SetUri newUri) (Request _ options) = Request newUri options
 
 -- TODO: refactor to use case 
 execute :: Command -> Env -> IO (Env, ByteString)
@@ -37,16 +40,30 @@ execute (Query q) env@(Env request maybeResponse) = case maybeResponse of
                                                     Nothing -> return (env, "no request made")
                                                     Just response -> return (env, query q response)
 execute (Order o) env@(Env request response) = order o request >>= (\newResponse -> return (Env request (Just newResponse), "ok"))
+execute (Main.Setter s) env@(Env request response) = return (Env (setter s request) response, "ok")
+
 
 parseCommand s = case (parse command "<error>" s) of
                    Left _        -> Nothing
                    Right command -> Just command
 
 
-command     = try body <|> try status <|> try getCommand
+whitespace  = many (char ' ')
+
+command     = try setUri <|> try body <|> try status <|> try getOrder
+
+setUri :: Stream s m Char => ParsecT s u m Command
+setUri      = do string "uri"
+                 whitespace
+                 char '='
+                 whitespace
+                 u <- uri
+                 return (Main.Setter (SetUri u))
+
+uri         = many (Text.Parsec.noneOf "\n\r")
 status      = string "status" >> return (Query Status)
 body        = string "body" >> return (Query Body)
-getCommand  = string "get" >> return (Order Get)
+getOrder    = string "get" >> return (Order Get)
 
 prompt str = do putStr str
                 hFlush stdout
