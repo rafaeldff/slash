@@ -27,6 +27,8 @@ execute (Env request _              ) Get = do let Request uri _ = request
                                                newResponse <- get uri
                                                return (Env request (Just newResponse), "ok")
 
+execute env@(Env _ Nothing) _  = return (env, "unknown")
+
 
 parseCommand s = case (parse command "<error>" s) of
                    Left _        -> Nothing
