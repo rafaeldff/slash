@@ -11,24 +11,32 @@ import Network.Wreq
 
 import System.IO (hFlush,stdout)
 
-data Command = Body | Status | Get
+data Queries = Body | Status deriving (Eq, Show)
+data Orders  = Get deriving (Eq, Show)
+
+data Command = Query Queries | Order Orders
                deriving (Eq, Show)
 
 type Uri = String
 data Request = Request Uri Options
 data Env = Env Request (Maybe (Response ByteString))
 
+query :: Queries -> Response ByteString -> ByteString
+query Body   response = response ^. responseBody 
+query Status response = C.pack $ show $ (response ^. responseStatus . statusCode)
+
+order :: Orders -> Request -> IO (Response ByteString)
+order Get request = do let Request uri _ = request
+                       newResponse <- get uri
+                       return newResponse
+
+
 -- TODO: refactor to use case 
-execute :: Env -> Command -> IO (Env, ByteString)
-execute (Env request (Just response)) Body   = return (Env request (Just response), response ^. responseBody)
-execute (Env request (Just response)) Status = return (Env request (Just response), C.pack $ show $ (response ^. responseStatus . statusCode))
-
-execute (Env request _              ) Get = do let Request uri _ = request
-                                               newResponse <- get uri
-                                               return (Env request (Just newResponse), "ok")
-
-execute env@(Env _ Nothing) _  = return (env, "unknown")
-
+execute :: Command -> Env -> IO (Env, ByteString)
+execute (Query q) env@(Env request maybeResponse) = case maybeResponse of
+                                                    Nothing -> return (env, "no request made")
+                                                    Just response -> return (env, query q response)
+execute (Order o) env@(Env request response) = order o request >>= (\newResponse -> return (Env request (Just newResponse), "ok"))
 
 parseCommand s = case (parse command "<error>" s) of
                    Left _        -> Nothing
@@ -36,9 +44,9 @@ parseCommand s = case (parse command "<error>" s) of
 
 
 command     = try body <|> try status <|> try getCommand
-status      = string "status" >> return Status
-body        = string "body" >> return Body
-getCommand  = string "get" >> return Get
+status      = string "status" >> return (Query Status)
+body        = string "body" >> return (Query Body)
+getCommand  = string "get" >> return (Order Get)
 
 prompt str = do putStr str
                 hFlush stdout
@@ -49,7 +57,7 @@ printResult Nothing       = return ()
 mainLoop env = do prompt "slash> "
                   commandInput <- getLine
                   let command  =  parseCommand commandInput
-                  result <-  T.sequence $ fmap (execute env) command
+                  result <-  T.sequence $ fmap ((flip execute) env) command
                   printResult $ fmap snd result
                   mainLoop $ maybe env fst result
                   
