@@ -35,16 +35,10 @@ parseCommand s = case (parse command "<error>" s) of
                    Right command -> Just command
 
 
-command = try body <|> try status <|> try getCommand
-
-status  = do _ <- string "status"
-             return Status
-
-body    = do _ <- string "body"
-             return Body
-
-getCommand  = do _ <- string "get"
-                 return Get
+command     = try body <|> try status <|> try getCommand
+status      = string "status" >> return Status
+body        = string "body" >> return Body
+getCommand  = string "get" >> return Get
 
 prompt str = do putStr str
                 hFlush stdout
