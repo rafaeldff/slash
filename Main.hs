@@ -49,17 +49,15 @@ getCommand  = do _ <- string "get"
 prompt str = do putStr str
                 hFlush stdout
 
-printResult result =
-  Prelude.putStrLn (show result)
+printResult (Just result) = Prelude.putStrLn (show result)
+printResult Nothing       = return ()
 
 mainLoop env = do prompt "slash> "
                   commandInput <- getLine
                   let command  =  parseCommand commandInput
-                  let ioenvres =  fmap (execute env) command
-                  envres       <- T.sequence ioenvres
-                  case envres of (Just (newEnv,result)) -> do printResult result
-                                                              mainLoop newEnv
-                                 Nothing                -> mainLoop env
+                  result <-  T.sequence $ fmap (execute env) command
+                  printResult $ fmap snd result
+                  mainLoop $ maybe env fst result
                   
 
 main = mainLoop (Env (Request "http://httpbin.org/get" defaults) Nothing)
